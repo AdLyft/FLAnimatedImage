@@ -1,5 +1,5 @@
 //
-//  FLAnimatedImageView.h
+//  ADL_FLAnimatedImageView.h
 //  Flipboard
 //
 //  Created by Raphael Schaad on 7/8/13.
@@ -12,7 +12,7 @@
 #import <QuartzCore/QuartzCore.h>
 
 
-@interface FLAnimatedImageView ()
+@interface ADL_FLAnimatedImageView ()
 
 // Override of public `readonly` properties as private `readwrite`
 @property (nonatomic, strong, readwrite) UIImage *currentFrame;
@@ -28,12 +28,12 @@
 @end
 
 
-@implementation FLAnimatedImageView
+@implementation ADL_FLAnimatedImageView
 
 #pragma mark - Accessors
 #pragma mark Public
 
-- (void)setAnimatedImage:(FLAnimatedImage *)animatedImage
+- (void)setAnimatedImage:(ADL_FLAnimatedImage *)animatedImage
 {
     if (![_animatedImage isEqual:animatedImage]) {
         if (animatedImage) {
@@ -164,7 +164,7 @@
             // will retain its target until it is invalidated. We use a weak proxy so that the image view will get deallocated
             // independent of the display link's lifetime. Upon image view deallocation, we invalidate the display
             // link which will lead to the deallocation of both the display link and the weak proxy.
-            FLWeakProxy *weakProxy = [FLWeakProxy weakProxyForObject:self];
+            ADL_FLWeakProxy *weakProxy = [ADL_FLWeakProxy weakProxyForObject:self];
             self.displayLink = [CADisplayLink displayLinkWithTarget:weakProxy selector:@selector(displayDidRefresh:)];
             
             NSString *mode = NSDefaultRunLoopMode;
@@ -236,53 +236,46 @@
     // If for some reason a wild call makes it through when we shouldn't be animating, bail.
     // Early return!
     if (!self.shouldAnimate) {
-        FLLogWarn(@"Trying to animate image when we shouldn't: %@", self);
+        ADL_FLLogWarn(@"Trying to animate image when we shouldn't: %@", self);
         return;
     }
     
-    NSNumber *delayTimeNumber = [self.animatedImage.delayTimesForIndexes objectForKey:@(self.currentFrameIndex)];
-    // If we don't have a frame delay (e.g. corrupt frame), don't update the view but skip the playhead to the next frame (in else-block).
-    if (delayTimeNumber) {
-        NSTimeInterval delayTime = [delayTimeNumber floatValue];
-        // If we have a nil image (e.g. waiting for frame), don't update the view nor playhead.
-        UIImage *image = [self.animatedImage imageLazilyCachedAtIndex:self.currentFrameIndex];
-        if (image) {
-            FLLogVerbose(@"Showing frame %lu for animated image: %@", (unsigned long)self.currentFrameIndex, self.animatedImage);
-            self.currentFrame = image;
-            if (self.needsDisplayWhenImageBecomesAvailable) {
-                [self.layer setNeedsDisplay];
-                self.needsDisplayWhenImageBecomesAvailable = NO;
-            }
-            
-            self.accumulator += displayLink.duration;
-            
-            // While-loop first inspired by & good Karma to: https://github.com/ondalabs/OLImageView/blob/master/OLImageView.m
-            while (self.accumulator >= delayTime) {
-                self.accumulator -= delayTime;
-                self.currentFrameIndex++;
-                if (self.currentFrameIndex >= self.animatedImage.frameCount) {
-                    // If we've looped the number of times that this animated image describes, stop looping.
-                    self.loopCountdown--;
-                    if (self.loopCountdown == 0) {
-                        [self stopAnimating];
-                        return;
-                    }
-                    self.currentFrameIndex = 0;
+    // If we have a nil image, don't update the view nor playhead.
+    UIImage *image = [self.animatedImage imageLazilyCachedAtIndex:self.currentFrameIndex];
+    if (image) {
+        ADL_FLLogVerbose(@"Showing frame %lu for animated image: %@", (unsigned long)self.currentFrameIndex, self.animatedImage);
+        self.currentFrame = image;
+        if (self.needsDisplayWhenImageBecomesAvailable) {
+            [self.layer setNeedsDisplay];
+            self.needsDisplayWhenImageBecomesAvailable = NO;
+        }
+        
+        self.accumulator += displayLink.duration;
+        
+        // While-loop first inspired by & good Karma to: https://github.com/ondalabs/OLImageView/blob/master/OLImageView.m
+        while (self.accumulator >= [self.animatedImage.delayTimes[self.currentFrameIndex] floatValue]) {
+            self.accumulator -= [self.animatedImage.delayTimes[self.currentFrameIndex] floatValue];
+            self.currentFrameIndex++;
+            if (self.currentFrameIndex >= self.animatedImage.frameCount) {
+                // If we've looped the number of times that this animated image describes, stop looping.
+                self.loopCountdown--;
+                if (self.loopCountdown == 0) {
+                    [self stopAnimating];
+                    return;
                 }
-                // Calling `-setNeedsDisplay` will just paint the current frame, not the new frame that we may have moved to.
-                // Instead, set `needsDisplayWhenImageBecomesAvailable` to `YES` -- this will paint the new image once loaded.
-                self.needsDisplayWhenImageBecomesAvailable = YES;
+                self.currentFrameIndex = 0;
             }
-        } else {
-            FLLogDebug(@"Waiting for frame %lu for animated image: %@", (unsigned long)self.currentFrameIndex, self.animatedImage);
-#if defined(DEBUG) && DEBUG
-            if ([self.debug_delegate respondsToSelector:@selector(debug_animatedImageView:waitingForFrame:duration:)]) {
-                [self.debug_delegate debug_animatedImageView:self waitingForFrame:self.currentFrameIndex duration:(NSTimeInterval)self.displayLink.duration];
-            }
-#endif
+            // Calling `-setNeedsDisplay` will just paint the current frame, not the new frame that we may have moved to.
+            // Instead, set `needsDisplayWhenImageBecomesAvailable` to `YES` -- this will paint the new image once loaded.
+            self.needsDisplayWhenImageBecomesAvailable = YES;
         }
     } else {
-        self.currentFrameIndex++;
+        ADL_FLLogDebug(@"Waiting for frame %lu for animated image: %@", (unsigned long)self.currentFrameIndex, self.animatedImage);
+#if defined(DEBUG) && DEBUG
+        if ([self.debug_delegate respondsToSelector:@selector(debug_animatedImageView:waitingForFrame:duration:)]) {
+            [self.debug_delegate debug_animatedImageView:self waitingForFrame:self.currentFrameIndex duration:(NSTimeInterval)self.displayLink.duration];
+        }
+#endif
     }
 }
 
